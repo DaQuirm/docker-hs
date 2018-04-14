@@ -93,8 +93,8 @@ testRunAndReadLog :: IO ()
 testRunAndReadLog =
   runDocker $
   do let containerConfig = (defaultContainerConfig (testImageName <> ":latest")) {env = [EnvVar "TEST" "123"]}
-         networkingConfig = NetworkingConfig $ HM.fromList [("test-network", EndpointConfig ["cellar-door"])]
-     containerId <- createContainer (CreateOpts containerConfig defaultHostConfig (Just networkingConfig)) Nothing
+         networkingConfig = NetworkingConfig $ HM.fromList [("host", EndpointConfig ["cellar-door"])]
+     containerId <- createContainer (CreateOpts containerConfig defaultHostConfig networkingConfig) Nothing
      c <- fromRight containerId
      status1 <- startContainer defaultStartOpts c
      _ <- inspectContainer c >>= fromRight

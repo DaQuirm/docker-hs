@@ -14,6 +14,7 @@ import           Control.Monad             (forM_)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson                as JSON
+import           Data.Aeson                ((.=))
 import           Data.Aeson.Lens           (key, _Array, _Null, _Object,
                                             _String, _Value)
 import qualified Data.ByteString           as B
@@ -92,7 +93,8 @@ testRunAndReadLog :: IO ()
 testRunAndReadLog =
   runDocker $
   do let containerConfig = (defaultContainerConfig (testImageName <> ":latest")) {env = [EnvVar "TEST" "123"]}
-     containerId <- createContainer (CreateOpts containerConfig defaultHostConfig) Nothing
+         networkingConfig = NetworkingConfig $ HM.fromList [("host", EndpointConfig ["cellar-door"])]
+     containerId <- createContainer (CreateOpts containerConfig defaultHostConfig networkingConfig) Nothing
      c <- fromRight containerId
      status1 <- startContainer defaultStartOpts c
      _ <- inspectContainer c >>= fromRight
@@ -184,6 +186,20 @@ testEnvVarJson = testGroup "Testing EnvVar JSON" [testSampleEncode, testSampleDe
       testCase "Test fromJSON" $ assert $ (JSON.decode "\"cellar=door\"" :: Maybe EnvVar) ==
         Just (EnvVar "cellar" "door")
 
+testNetworkingConfigJson :: TestTree
+testNetworkingConfigJson = testGroup "Testing NetworkingConfig JSON" [testSampleEncode]
+  where
+    testSampleEncode =
+      let networkingConfig = NetworkingConfig $ HM.fromList [("custom-network", EndpointConfig ["cellar", "door"])]
+       in testCase "Test toJSON" $ assert $ JSON.toJSON networkingConfig ==
+        JSON.object
+          [ "EndpointsConfig" .= JSON.object
+            [ "custom-network" .= JSON.object
+              [ "Aliases" .= (["cellar", "door"] :: [Text])
+              ]
+            ]
+          ]
+
 integrationTests :: TestTree
 integrationTests =
   testGroup
@@ -206,6 +222,7 @@ jsonTests =
     , testLogDriverOptionsJson
     , testEntrypointJson
     , testEnvVarJson
+    , testNetworkingConfigJson
     ]
 
 setup :: IO ()
